@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import InitiativesList from './components/InitiativesList';
 import ProjectsList from './components/ProjectsList';
 import CommitteeReporting from './components/CommitteeReporting';
+import ValueListsManagement from './components/ValueListsManagement';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -18,6 +19,8 @@ function App() {
         return <ProjectsList />;
       case 'committees':
         return <CommitteeReporting />;
+      case 'value-lists':
+        return <ValueListsManagement />;
       case 'settings':
         return (
           <div className="text-center py-12">
