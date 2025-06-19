@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Calendar, DollarSign, Target, Users, FileText, AlertCircle, ArrowRight, MessageSquare } from 'lucide-react';
-import { Initiative, DocumentType, WorkflowStatus, WorkflowComment } from '../types';
-import { services, workflowStatusLabels, documentTypeLabels } from '../data/mockData';
+import { X, Save, Calendar, DollarSign, Target, Users, FileText, AlertCircle, ArrowRight, ArrowLeft, Send, Star } from 'lucide-react';
+import { Initiative, DocumentType, WorkflowStatus } from '../types';
+import { services } from '../data/mockData';
+import { valueListsData } from '../data/valueLists';
 
 interface InitiativeFormProps {
   initiative?: Initiative;
@@ -16,27 +17,40 @@ const InitiativeForm: React.FC<InitiativeFormProps> = ({
   onCancel,
   isEditing = false
 }) => {
-  const [formData, setFormData] = useState<Partial<Initiative>>({
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<Partial<Initiative & {
+    implementationDate: string;
+    projectOwner: string;
+    affectedServices: string[];
+    associatedValues: string[];
+    newOptions: string[];
+    estimatedImpact: number;
+    requiredResources: string;
+    projectedBudget: number;
+  }>>({
     title: '',
     description: '',
     documentType: 'FI',
     status: 'draft',
     objectives: '',
-    scope: '',
+    implementationDate: '',
+    projectOwner: '',
+    affectedServices: [],
+    associatedValues: [],
+    newOptions: [],
+    estimatedImpact: 3,
+    requiredResources: '',
+    projectedBudget: 0,
     budgetEstimated: 0,
     timelineEstimated: { startDate: '', endDate: '' },
     initiatingService: '',
     initiator: '',
-    projectManager: '',
-    sponsor: '',
     workflowComments: [],
     ...initiative
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newComment, setNewComment] = useState('');
-  const [showWorkflowActions, setShowWorkflowActions] = useState(false);
 
   useEffect(() => {
     if (initiative) {
@@ -44,40 +58,51 @@ const InitiativeForm: React.FC<InitiativeFormProps> = ({
     }
   }, [initiative]);
 
-  const validateForm = (): boolean => {
+  // Options disponibles pour les nouvelles fonctionnalités
+  const availableOptions = [
+    'Interface utilisateur améliorée',
+    'Intégration mobile',
+    'Rapports automatisés',
+    'Notifications en temps réel',
+    'API externe',
+    'Sécurité renforcée',
+    'Analytics avancés',
+    'Workflow personnalisé'
+  ];
+
+  const validateStep = (step: number): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.title?.trim()) {
-      newErrors.title = 'Le titre est obligatoire';
-    }
-
-    if (!formData.description?.trim()) {
-      newErrors.description = 'La description est obligatoire';
-    }
-
-    if (!formData.objectives?.trim()) {
-      newErrors.objectives = 'Les objectifs sont obligatoires';
-    }
-
-    if (!formData.scope?.trim()) {
-      newErrors.scope = 'Le périmètre est obligatoire';
-    }
-
-    if (!formData.initiatingService) {
-      newErrors.initiatingService = 'Le service initiateur est obligatoire';
-    }
-
-    if (!formData.initiator?.trim()) {
-      newErrors.initiator = 'L\'initiateur est obligatoire';
-    }
-
-    // Validation spécifique pour FP
-    if (formData.documentType === 'FP') {
-      if (!formData.projectManager?.trim()) {
-        newErrors.projectManager = 'Le chef de projet est obligatoire pour une FP';
+    if (step === 1) {
+      if (!formData.title?.trim()) {
+        newErrors.title = 'Le titre est obligatoire';
       }
-      if (!formData.sponsor?.trim()) {
-        newErrors.sponsor = 'Le sponsor est obligatoire pour une FP';
+      if (!formData.description?.trim()) {
+        newErrors.description = 'La description est obligatoire';
+      }
+      if (!formData.objectives?.trim()) {
+        newErrors.objectives = 'Les objectifs sont obligatoires';
+      }
+      if (!formData.implementationDate) {
+        newErrors.implementationDate = 'La date de mise en œuvre est obligatoire';
+      }
+      if (!formData.projectOwner?.trim()) {
+        newErrors.projectOwner = 'Le porteur du projet est obligatoire';
+      }
+      if (!formData.affectedServices || formData.affectedServices.length === 0) {
+        newErrors.affectedServices = 'Au moins un service concerné est obligatoire';
+      }
+    }
+
+    if (step === 2) {
+      if (!formData.associatedValues || formData.associatedValues.length === 0) {
+        newErrors.associatedValues = 'Au moins une valeur associée est obligatoire';
+      }
+      if (!formData.requiredResources?.trim()) {
+        newErrors.requiredResources = 'Les ressources nécessaires sont obligatoires';
+      }
+      if (!formData.projectedBudget || formData.projectedBudget <= 0) {
+        newErrors.projectedBudget = 'Le budget prévisionnel doit être supérieur à 0';
       }
     }
 
@@ -85,10 +110,51 @@ const InitiativeForm: React.FC<InitiativeFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(2);
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(1);
+  };
+
+  const handleSaveDraft = async () => {
+    setIsSubmitting(true);
     
-    if (!validateForm()) {
+    try {
+      const submissionData = {
+        ...formData,
+        status: 'draft' as WorkflowStatus,
+        budgetEstimated: formData.projectedBudget,
+        timelineEstimated: {
+          startDate: formData.implementationDate,
+          endDate: ''
+        },
+        initiatingService: formData.affectedServices?.[0] || '',
+        initiator: formData.projectOwner,
+        updatedAt: new Date().toISOString(),
+        ...(isEditing ? {} : {
+          id: Date.now().toString(),
+          createdAt: new Date().toISOString(),
+          createdBy: 'Marie Dubois'
+        })
+      };
+
+      await onSave(submissionData);
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitForValidation = async () => {
+    if (!validateStep(1) || !validateStep(2)) {
+      if (!validateStep(1)) {
+        setCurrentStep(1);
+      }
       return;
     }
 
@@ -97,17 +163,35 @@ const InitiativeForm: React.FC<InitiativeFormProps> = ({
     try {
       const submissionData = {
         ...formData,
+        status: 'pending_n1' as WorkflowStatus,
+        budgetEstimated: formData.projectedBudget,
+        timelineEstimated: {
+          startDate: formData.implementationDate,
+          endDate: ''
+        },
+        initiatingService: formData.affectedServices?.[0] || '',
+        initiator: formData.projectOwner,
         updatedAt: new Date().toISOString(),
+        workflowComments: [
+          {
+            id: Date.now().toString(),
+            author: 'Marie Dubois',
+            role: 'Initiateur',
+            comment: 'Initiative soumise pour validation N+1',
+            status: 'pending_n1' as WorkflowStatus,
+            createdAt: new Date().toISOString()
+          }
+        ],
         ...(isEditing ? {} : {
           id: Date.now().toString(),
           createdAt: new Date().toISOString(),
-          createdBy: 'Marie Dubois' // In real app, get from auth context
+          createdBy: 'Marie Dubois'
         })
       };
 
       await onSave(submissionData);
     } catch (error) {
-      console.error('Error saving initiative:', error);
+      console.error('Error submitting for validation:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -119,7 +203,6 @@ const InitiativeForm: React.FC<InitiativeFormProps> = ({
       [field]: value
     }));
     
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -128,122 +211,42 @@ const InitiativeForm: React.FC<InitiativeFormProps> = ({
     }
   };
 
-  const handleTimelineChange = (type: 'startDate' | 'endDate', value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      timelineEstimated: {
-        ...prev.timelineEstimated,
-        [type]: value
+  const handleMultiSelectChange = (field: string, value: string, checked: boolean) => {
+    setFormData(prev => {
+      const currentValues = prev[field as keyof typeof prev] as string[] || [];
+      if (checked) {
+        return {
+          ...prev,
+          [field]: [...currentValues, value]
+        };
+      } else {
+        return {
+          ...prev,
+          [field]: currentValues.filter(v => v !== value)
+        };
       }
-    }));
+    });
   };
 
-  const handleStatusChange = (newStatus: WorkflowStatus) => {
-    if (newComment.trim()) {
-      const comment: WorkflowComment = {
-        id: Date.now().toString(),
-        author: 'Marie Dubois', // Current user
-        role: 'PMO',
-        comment: newComment,
-        status: newStatus,
-        createdAt: new Date().toISOString()
-      };
-
-      setFormData(prev => ({
-        ...prev,
-        status: newStatus,
-        workflowComments: [...(prev.workflowComments || []), comment]
-      }));
-
-      setNewComment('');
-      setShowWorkflowActions(false);
-    }
+  const getStepProgress = () => {
+    return (currentStep / 2) * 100;
   };
 
-  const getAvailableActions = (): Array<{action: WorkflowStatus, label: string, color: string}> => {
-    if (!isEditing) return [];
-
-    const currentStatus = formData.status;
-    
-    switch (currentStatus) {
-      case 'draft':
-        return [
-          { action: 'pending_n1', label: 'Soumettre au N+1', color: 'bg-blue-600' }
-        ];
-      case 'pending_n1':
-        return [
-          { action: 'pmo_review', label: 'Valider et transmettre au PMO', color: 'bg-green-600' },
-          { action: 'rejected_n1', label: 'Rejeter', color: 'bg-red-600' }
-        ];
-      case 'rejected_n1':
-        return [
-          { action: 'pending_n1', label: 'Resoumettre au N+1', color: 'bg-blue-600' }
-        ];
-      case 'pmo_review':
-        return [
-          { action: 'committee_review', label: 'Transmettre au Comité', color: 'bg-green-600' },
-          { action: 'pmo_corrections', label: 'Demander des corrections', color: 'bg-orange-600' }
-        ];
-      case 'pmo_corrections':
-        return [
-          { action: 'pmo_review', label: 'Resoumettre au PMO', color: 'bg-blue-600' }
-        ];
-      case 'committee_review':
-        return [
-          { action: 'approved', label: 'Approuver (GO)', color: 'bg-green-600' },
-          { action: 'committee_corrections', label: 'Demander des corrections', color: 'bg-orange-600' },
-          { action: 'archived', label: 'Archiver', color: 'bg-gray-600' }
-        ];
-      case 'committee_corrections':
-        return [
-          { action: 'committee_review', label: 'Resoumettre au Comité', color: 'bg-blue-600' }
-        ];
-      case 'approved':
-        if (formData.documentType === 'FI') {
-          return [
-            { action: 'draft', label: 'Créer la FP associée', color: 'bg-purple-600' }
-          ];
-        }
-        return [];
-      default:
-        return [];
-    }
-  };
-
-  const getStatusColor = (status: WorkflowStatus) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'pending_n1': return 'bg-blue-100 text-blue-800';
-      case 'rejected_n1': return 'bg-red-100 text-red-800';
-      case 'pmo_review': return 'bg-purple-100 text-purple-800';
-      case 'pmo_corrections': return 'bg-orange-100 text-orange-800';
-      case 'committee_review': return 'bg-amber-100 text-amber-800';
-      case 'committee_corrections': return 'bg-yellow-100 text-yellow-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'archived': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  // Récupérer les listes de valeurs pour les options
+  const valuesList = valueListsData.find(vl => vl.systemKey === 'services');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 sticky top-0 bg-white rounded-t-xl">
-          <div className="flex justify-between items-center">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center mb-4">
             <div>
-              <div className="flex items-center space-x-3 mb-2">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {isEditing ? 'Modifier' : 'Créer'} {documentTypeLabels[formData.documentType as DocumentType]}
-                </h2>
-                {isEditing && (
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(formData.status as WorkflowStatus)}`}>
-                    {workflowStatusLabels[formData.status as WorkflowStatus]}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-gray-600">
-                {isEditing ? 'Modifiez les informations du document' : 'Saisissez les informations du nouveau document'}
+              <h2 className="text-xl font-bold text-gray-900">
+                {isEditing ? 'Modifier l\'initiative' : 'Nouvelle initiative'}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Étape {currentStep} sur 2 - {currentStep === 1 ? 'Informations principales' : 'Options et valeurs'}
               </p>
             </div>
             <button
@@ -253,432 +256,332 @@ const InitiativeForm: React.FC<InitiativeFormProps> = ({
               <X className="h-6 w-6" />
             </button>
           </div>
+          
+          {/* Progress bar */}
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${getStepProgress()}%` }}
+            ></div>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-8">
-          {/* Type de document */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Type de document
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <label className="relative">
-                  <input
-                    type="radio"
-                    name="documentType"
-                    value="FI"
-                    checked={formData.documentType === 'FI'}
-                    onChange={(e) => handleInputChange('documentType', e.target.value)}
-                    className="sr-only"
-                  />
-                  <div className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                    formData.documentType === 'FI' 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}>
-                    <div className="flex items-center space-x-3">
-                      <Target className="h-5 w-5 text-blue-600" />
-                      <div>
-                        <div className="font-medium text-gray-900">Formulaire d'Initiative (FI)</div>
-                        <div className="text-sm text-gray-600">Nouvelle idée ou identification d'un problème</div>
-                      </div>
-                    </div>
-                  </div>
-                </label>
-                <label className="relative">
-                  <input
-                    type="radio"
-                    name="documentType"
-                    value="FP"
-                    checked={formData.documentType === 'FP'}
-                    onChange={(e) => handleInputChange('documentType', e.target.value)}
-                    className="sr-only"
-                  />
-                  <div className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                    formData.documentType === 'FP' 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}>
-                    <div className="flex items-center space-x-3">
-                      <FileText className="h-5 w-5 text-green-600" />
-                      <div>
-                        <div className="font-medium text-gray-900">Fiche Projet (FP)</div>
-                        <div className="text-sm text-gray-600">Définition détaillée du projet à réaliser</div>
-                      </div>
-                    </div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {formData.documentType === 'FP' && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div className="text-sm text-green-800">
-                    <p className="font-medium mb-1">Fiche Projet (FP)</p>
-                    <p>Cette fiche doit être créée suite à l'approbation d'une Formulaire d'Initiative (FI). 
-                       Assurez-vous d'avoir tous les éléments détaillés du projet.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Informations de base */}
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                Titre {formData.documentType === 'FI' ? 'de l\'initiative' : 'du projet'} *
-              </label>
-              <input
-                type="text"
-                id="title"
-                value={formData.title || ''}
-                onChange={(e) => handleInputChange('title', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.title ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Donnez un titre clair et descriptif"
-              />
-              {errors.title && (
-                <p className="mt-1 text-sm text-red-600">{errors.title}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Description détaillée *
-              </label>
-              <textarea
-                id="description"
-                rows={4}
-                value={formData.description || ''}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.description ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Décrivez en détail le contexte, les enjeux et la solution proposée"
-              />
-              {errors.description && (
-                <p className="mt-1 text-sm text-red-600">{errors.description}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Objectifs et Périmètre */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="objectives" className="block text-sm font-medium text-gray-700 mb-2">
-                Objectifs *
-              </label>
-              <textarea
-                id="objectives"
-                rows={4}
-                value={formData.objectives || ''}
-                onChange={(e) => handleInputChange('objectives', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.objectives ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Quels sont les objectifs mesurables à atteindre ?"
-              />
-              {errors.objectives && (
-                <p className="mt-1 text-sm text-red-600">{errors.objectives}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="scope" className="block text-sm font-medium text-gray-700 mb-2">
-                Périmètre *
-              </label>
-              <textarea
-                id="scope"
-                rows={4}
-                value={formData.scope || ''}
-                onChange={(e) => handleInputChange('scope', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.scope ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Définissez le périmètre d'action"
-              />
-              {errors.scope && (
-                <p className="mt-1 text-sm text-red-600">{errors.scope}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Budget estimé */}
-          <div className="bg-gray-50 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <DollarSign className="h-5 w-5 mr-2 text-green-600" />
-              Budget estimé
-            </h3>
-            <div>
-              <label htmlFor="budgetEstimated" className="block text-sm font-medium text-gray-700 mb-2">
-                Montant estimé (€)
-              </label>
-              <input
-                type="number"
-                id="budgetEstimated"
-                min="0"
-                step="1000"
-                value={formData.budgetEstimated || ''}
-                onChange={(e) => handleInputChange('budgetEstimated', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0"
-              />
-            </div>
-          </div>
-
-          {/* Calendrier prévisionnel */}
-          <div className="bg-blue-50 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-              Calendrier prévisionnel
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Form Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {currentStep === 1 && (
+            /* Page 1 - Informations principales */
+            <div className="space-y-6">
               <div>
-                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date de début souhaitée
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                  Titre de l'initiative *
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  value={formData.title || ''}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.title ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Donnez un titre clair et descriptif à votre initiative"
+                />
+                {errors.title && (
+                  <p className="mt-1 text-sm text-red-600">{errors.title}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                  Description détaillée *
+                </label>
+                <textarea
+                  id="description"
+                  rows={4}
+                  value={formData.description || ''}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.description ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Décrivez en détail votre initiative, le contexte et les enjeux"
+                />
+                {errors.description && (
+                  <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="objectives" className="block text-sm font-medium text-gray-700 mb-2">
+                  Objectifs visés *
+                </label>
+                <textarea
+                  id="objectives"
+                  rows={3}
+                  value={formData.objectives || ''}
+                  onChange={(e) => handleInputChange('objectives', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.objectives ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Quels sont les objectifs mesurables à atteindre ?"
+                />
+                {errors.objectives && (
+                  <p className="mt-1 text-sm text-red-600">{errors.objectives}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="implementationDate" className="block text-sm font-medium text-gray-700 mb-2">
+                  Date souhaitée de mise en œuvre *
                 </label>
                 <input
                   type="date"
-                  id="startDate"
-                  value={formData.timelineEstimated?.startDate || ''}
-                  onChange={(e) => handleTimelineChange('startDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  id="implementationDate"
+                  value={formData.implementationDate || ''}
+                  onChange={(e) => handleInputChange('implementationDate', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.implementationDate ? 'border-red-300' : 'border-gray-300'
+                  }`}
                 />
+                {errors.implementationDate && (
+                  <p className="mt-1 text-sm text-red-600">{errors.implementationDate}</p>
+                )}
               </div>
+
               <div>
-                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date de fin souhaitée
+                <label htmlFor="projectOwner" className="block text-sm font-medium text-gray-700 mb-2">
+                  Porteur du projet *
                 </label>
                 <input
-                  type="date"
-                  id="endDate"
-                  value={formData.timelineEstimated?.endDate || ''}
-                  onChange={(e) => handleTimelineChange('endDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  type="text"
+                  id="projectOwner"
+                  value={formData.projectOwner || ''}
+                  onChange={(e) => handleInputChange('projectOwner', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.projectOwner ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Nom du responsable du projet"
                 />
+                {errors.projectOwner && (
+                  <p className="mt-1 text-sm text-red-600">{errors.projectOwner}</p>
+                )}
               </div>
-            </div>
-          </div>
 
-          {/* Responsabilités */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="initiatingService" className="block text-sm font-medium text-gray-700 mb-2">
-                Service initiateur *
-              </label>
-              <select
-                id="initiatingService"
-                value={formData.initiatingService || ''}
-                onChange={(e) => handleInputChange('initiatingService', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.initiatingService ? 'border-red-300' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Sélectionnez un service</option>
-                {services.map((service) => (
-                  <option key={service} value={service}>
-                    {service}
-                  </option>
-                ))}
-              </select>
-              {errors.initiatingService && (
-                <p className="mt-1 text-sm text-red-600">{errors.initiatingService}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="initiator" className="block text-sm font-medium text-gray-700 mb-2">
-                Initiateur *
-              </label>
-              <input
-                type="text"
-                id="initiator"
-                value={formData.initiator || ''}
-                onChange={(e) => handleInputChange('initiator', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.initiator ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Nom de l'initiateur"
-              />
-              {errors.initiator && (
-                <p className="mt-1 text-sm text-red-600">{errors.initiator}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Champs spécifiques FP */}
-          {formData.documentType === 'FP' && (
-            <div className="bg-green-50 rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <Users className="h-5 w-5 mr-2 text-green-600" />
-                Responsabilités projet (obligatoire pour FP)
-              </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="projectManager" className="block text-sm font-medium text-gray-700 mb-2">
-                    Chef de projet *
-                  </label>
-                  <input
-                    type="text"
-                    id="projectManager"
-                    value={formData.projectManager || ''}
-                    onChange={(e) => handleInputChange('projectManager', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.projectManager ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Nom du chef de projet"
-                  />
-                  {errors.projectManager && (
-                    <p className="mt-1 text-sm text-red-600">{errors.projectManager}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="sponsor" className="block text-sm font-medium text-gray-700 mb-2">
-                    Sponsor *
-                  </label>
-                  <input
-                    type="text"
-                    id="sponsor"
-                    value={formData.sponsor || ''}
-                    onChange={(e) => handleInputChange('sponsor', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.sponsor ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Nom du sponsor"
-                  />
-                  {errors.sponsor && (
-                    <p className="mt-1 text-sm text-red-600">{errors.sponsor}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Historique des commentaires */}
-          {isEditing && formData.workflowComments && formData.workflowComments.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <MessageSquare className="h-5 w-5 mr-2 text-gray-600" />
-                Historique des validations
-              </h3>
-              <div className="space-y-4">
-                {formData.workflowComments.map((comment) => (
-                  <div key={comment.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <span className="font-medium text-gray-900">{comment.author}</span>
-                        <span className="text-sm text-gray-500">({comment.role})</span>
-                        <ArrowRight className="h-4 w-4 text-gray-400" />
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(comment.status)}`}>
-                          {workflowStatusLabels[comment.status]}
-                        </span>
-                      </div>
-                      <span className="text-sm text-gray-500">
-                        {new Date(comment.createdAt).toLocaleDateString('fr-FR')}
-                      </span>
-                    </div>
-                    <p className="text-gray-700 text-sm">{comment.comment}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Actions workflow */}
-          {isEditing && getAvailableActions().length > 0 && (
-            <div className="bg-blue-50 rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Actions disponibles</h3>
-              
-              {!showWorkflowActions ? (
-                <button
-                  type="button"
-                  onClick={() => setShowWorkflowActions(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Effectuer une action de workflow
-                </button>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Commentaire (obligatoire)
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Service(s) concerné(s) *
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {services.map((service) => (
+                    <label key={service} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.affectedServices?.includes(service) || false}
+                        onChange={(e) => handleMultiSelectChange('affectedServices', service, e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{service}</span>
                     </label>
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Ajoutez un commentaire expliquant votre décision..."
-                    />
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-3">
-                    {getAvailableActions().map((action) => (
-                      <button
-                        key={action.action}
-                        type="button"
-                        onClick={() => handleStatusChange(action.action)}
-                        disabled={!newComment.trim()}
-                        className={`${action.color} text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowWorkflowActions(false);
-                        setNewComment('');
-                      }}
-                      className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
-                    >
-                      Annuler
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              )}
+                {errors.affectedServices && (
+                  <p className="mt-1 text-sm text-red-600">{errors.affectedServices}</p>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Form Actions */}
-          <div className="border-t border-gray-200 pt-6">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-500">
-                * Champs obligatoires
+          {currentStep === 2 && (
+            /* Page 2 - Options et valeurs */
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Liste des valeurs associées *
+                </label>
+                <select
+                  multiple
+                  value={formData.associatedValues || []}
+                  onChange={(e) => {
+                    const selectedValues = Array.from(e.target.selectedOptions, option => option.value);
+                    handleInputChange('associatedValues', selectedValues);
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32 ${
+                    errors.associatedValues ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                >
+                  {valuesList?.items.filter(item => item.active).map((item) => (
+                    <option key={item.id} value={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Maintenez Ctrl (ou Cmd sur Mac) pour sélectionner plusieurs valeurs
+                </p>
+                {errors.associatedValues && (
+                  <p className="mt-1 text-sm text-red-600">{errors.associatedValues}</p>
+                )}
               </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>
-                    {isSubmitting 
-                      ? 'Enregistrement...' 
-                      : isEditing 
-                        ? 'Mettre à jour' 
-                        : 'Créer'
-                    }
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Nouvelles options disponibles
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {availableOptions.map((option) => (
+                    <label key={option} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.newOptions?.includes(option) || false}
+                        onChange={(e) => handleMultiSelectChange('newOptions', option, e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="estimatedImpact" className="block text-sm font-medium text-gray-700 mb-2">
+                  Impact estimé (échelle de 1 à 5) *
+                </label>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="range"
+                    id="estimatedImpact"
+                    min="1"
+                    max="5"
+                    value={formData.estimatedImpact || 3}
+                    onChange={(e) => handleInputChange('estimatedImpact', parseInt(e.target.value))}
+                    className="flex-1"
+                  />
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`h-5 w-5 ${
+                          star <= (formData.estimatedImpact || 3)
+                            ? 'text-yellow-400 fill-current'
+                            : 'text-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 w-8">
+                    {formData.estimatedImpact || 3}/5
                   </span>
-                </button>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  1 = Impact faible, 5 = Impact très élevé
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="requiredResources" className="block text-sm font-medium text-gray-700 mb-2">
+                  Ressources nécessaires *
+                </label>
+                <textarea
+                  id="requiredResources"
+                  rows={4}
+                  value={formData.requiredResources || ''}
+                  onChange={(e) => handleInputChange('requiredResources', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.requiredResources ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Décrivez les ressources humaines, techniques et matérielles nécessaires"
+                />
+                {errors.requiredResources && (
+                  <p className="mt-1 text-sm text-red-600">{errors.requiredResources}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="projectedBudget" className="block text-sm font-medium text-gray-700 mb-2">
+                  Budget prévisionnel (€) *
+                </label>
+                <input
+                  type="number"
+                  id="projectedBudget"
+                  min="0"
+                  step="1000"
+                  value={formData.projectedBudget || ''}
+                  onChange={(e) => handleInputChange('projectedBudget', parseInt(e.target.value) || 0)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.projectedBudget ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="0"
+                />
+                {errors.projectedBudget && (
+                  <p className="mt-1 text-sm text-red-600">{errors.projectedBudget}</p>
+                )}
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-200 p-6 bg-gray-50">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-500">
+              * Champs obligatoires
+            </div>
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              
+              {currentStep === 2 && (
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Précédent</span>
+                </button>
+              )}
+              
+              {currentStep === 1 && (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <span>Suivant</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+              
+              {currentStep === 2 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isSubmitting}
+                    className="px-6 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>Sauvegarder en brouillon</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitForValidation}
+                    disabled={isSubmitting}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="h-4 w-4" />
+                    <span>
+                      {isSubmitting ? 'Envoi...' : 'Envoyer pour validation'}
+                    </span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
