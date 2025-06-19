@@ -11,12 +11,50 @@ export type WorkflowStatus =
   | 'approved'           // 7: Approuvé par CODIR (GO)
   | 'archived';          // 8: Archivée (projet non poursuivi)
 
+export type PerformanceStatus = 
+  | 'conforme'           // Tout va bien, conforme au plan
+  | 'mise_en_garde'      // Léger retard ou léger surcoût mais projet pas à risque
+  | 'a_risque'           // Délai important ou changement de périmètre conséquent ou dépassement de budget important
+  | 'en_derive';         // Solution d'urgence à trouver pour relancer le projet ou stop
+
 export interface WorkflowComment {
   id: string;
   author: string;
   role: string;
   comment: string;
   status: WorkflowStatus;
+  createdAt: string;
+}
+
+export interface PerformanceReport {
+  id: string;
+  projectId: string;
+  reportDate: string;
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  performance: {
+    budget: {
+      status: PerformanceStatus;
+      evolution: PerformanceStatus;
+    };
+    planning: {
+      status: PerformanceStatus;
+      evolution: PerformanceStatus;
+    };
+    scope: {
+      status: PerformanceStatus;
+      evolution: PerformanceStatus;
+    };
+  };
+  achievements: string; // Fait sur la période
+  nextPlans: string;    // Prévu sur la période suivante
+  nextPeriod: {
+    startDate: string;
+    endDate: string;
+  };
+  reportedBy: string;
   createdAt: string;
 }
 
@@ -54,6 +92,7 @@ export interface Project {
   title: string;
   description: string;
   status: 'planning' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
+  committeeType: CommitteeType; // Ajout du type de comité responsable
   
   // 1. GOUVERNANCE
   governance: {
@@ -104,6 +143,9 @@ export interface Project {
     blockers: string[];
     attentionPoints: string[];
   };
+  
+  // 6. RAPPORTS DE PERFORMANCE
+  performanceReports: PerformanceReport[];
   
   milestones: Milestone[];
   resources: Resource[];
