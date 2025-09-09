@@ -532,11 +532,24 @@ const ProjectUpdateForm: React.FC<ProjectUpdateProps> = ({ project, onSave, onCa
               Annuler
             </button>
             <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Sauvegarder en brouillon ? Vous pourrez continuer plus tard.')) {
+                  alert('💾 Actualisation sauvegardée en brouillon.\n\nVous pouvez la finaliser ultérieurement.');
+                  onCancel();
+                }
+              }}
+              className="px-6 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex items-center space-x-2"
+            >
+              <Clock className="h-4 w-4" />
+              <span>Sauvegarder en brouillon</span>
+            </button>
+            <button
               type="submit"
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
             >
               <Save className="h-4 w-4" />
-              <span>Enregistrer l'actualisation</span>
+              <span>Finaliser l'actualisation</span>
             </button>
           </div>
         </form>

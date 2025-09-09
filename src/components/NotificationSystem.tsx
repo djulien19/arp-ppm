@@ -30,7 +30,7 @@ interface ProjectNotification {
   acknowledged?: boolean;
   daysSinceLastUpdate: number;
   nextNotificationDate?: string;
-  notificationCount: number; // Nombre de notifications envoyées cette semaine
+  notificationCount: number;
   priority: 'low' | 'medium' | 'high';
   emailSubject: string;
 }
@@ -131,6 +131,7 @@ const NotificationSystem: React.FC = () => {
     const prefix = type === 'urgent' ? '[URGENT]' : type === 'overdue' ? '[ACTION REQUISE]' : '[RAPPEL]';
     return `${prefix} Mise à jour requise - Projet: ${project.title}`;
   };
+
   const handleSendNotification = async (notification: ProjectNotification) => {
     // Simulation envoi notification (email + Teams)
     setNotifications(prev => prev.map(n => 
@@ -173,6 +174,19 @@ const NotificationSystem: React.FC = () => {
     return mockProjects.find(p => p.id === projectId) || null;
   };
 
+  const filteredNotifications = notifications.filter(notification => {
+    const matchesSearch = notification.projectManager.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         getProjectById(notification.projectId)?.title.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || 
+                         (statusFilter === 'sent' && notification.sentAt) ||
+                         (statusFilter === 'pending' && !notification.sentAt) ||
+                         (statusFilter === 'urgent' && notification.type === 'urgent') ||
+                         (statusFilter === 'acknowledged' && notification.acknowledged);
+    
+    return matchesSearch && matchesStatus;
+  });
+
   const getNotificationTypeColor = (type: string) => {
     switch (type) {
       case 'urgent': return 'bg-red-100 text-red-800 border-red-200 ring-2 ring-red-300';
@@ -191,21 +205,9 @@ const NotificationSystem: React.FC = () => {
     }
   };
 
-  const filteredNotifications = notifications.filter(notification => {
-    const project = getProjectById(notification.projectId);
-    const matchesSearch = project?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         notification.projectManager.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'pending' && !notification.sentAt) ||
-                         (statusFilter === 'sent' && notification.sentAt && !notification.acknowledged) ||
-                         (statusFilter === 'acknowledged' && notification.acknowledged);
-    return matchesSearch && matchesStatus;
-  });
-
-  // Configuration des règles
-  const NotificationRulesConfig: React.FC = () => (
+  const NotificationRulesConfig = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">Configuration des règles de notification</h2>
@@ -218,111 +220,63 @@ const NotificationSystem: React.FC = () => {
           </div>
         </div>
         
-        <div className="p-6 space-y-6">
-          {notificationRules.map((rule, index) => (
-            <div key={rule.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{rule.name}</h3>
-                  <p className="text-sm text-gray-600">{rule.description}</p>
-                </div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={rule.enabled}
-                    onChange={(e) => {
-                      const newRules = [...notificationRules];
-                      newRules[index].enabled = e.target.checked;
-                      setNotificationRules(newRules);
-                    }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Activé</span>
-                </label>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Délai (jours)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={rule.daysSinceLastUpdate}
-                    onChange={(e) => {
-                      const newRules = [...notificationRules];
-                      newRules[index].daysSinceLastUpdate = parseInt(e.target.value) || 1;
-                      setNotificationRules(newRules);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+        <div className="p-6">
+          <div className="space-y-6">
+            {notificationRules.map((rule) => (
+              <div key={rule.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-medium text-gray-900">{rule.name}</h3>
+                    <p className="text-sm text-gray-600">{rule.description}</p>
+                  </div>
+                  <button
+                    onClick={() => setNotificationRules(prev => prev.map(r => 
+                      r.id === rule.id ? { ...r, enabled: !r.enabled } : r
+                    ))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      rule.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      rule.enabled ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Max notifications/semaine
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="7"
-                    value={rule.maxNotificationsPerWeek}
-                    onChange={(e) => {
-                      const newRules = [...notificationRules];
-                      newRules[index].maxNotificationsPerWeek = parseInt(e.target.value) || 1;
-                      setNotificationRules(newRules);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Délai: </span>
+                    <span className="font-medium">{rule.daysSinceLastUpdate} jours</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Max/semaine: </span>
+                    <span className="font-medium">{rule.maxNotificationsPerWeek}</span>
+                  </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Canaux
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex items-center text-sm">
-                      <input
-                        type="checkbox"
-                        checked={rule.channels.includes('email')}
-                        onChange={(e) => {
-                          const newRules = [...notificationRules];
-                          if (e.target.checked) {
-                            newRules[index].channels = [...new Set([...rule.channels, 'email'])];
-                          } else {
-                            newRules[index].channels = rule.channels.filter(c => c !== 'email');
-                          }
-                          setNotificationRules(newRules);
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <Mail className="h-4 w-4 ml-2 mr-1" />
-                      <span>Email</span>
-                    </label>
-                    <label className="flex items-center text-sm">
-                      <input
-                        type="checkbox"
-                        checked={rule.channels.includes('teams')}
-                        onChange={(e) => {
-                          const newRules = [...notificationRules];
-                          if (e.target.checked) {
-                            newRules[index].channels = [...new Set([...rule.channels, 'teams'])];
-                          } else {
-                            newRules[index].channels = rule.channels.filter(c => c !== 'teams');
-                          }
-                          setNotificationRules(newRules);
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <MessageSquare className="h-4 w-4 ml-2 mr-1" />
-                      <span>Teams</span>
-                    </label>
+                <div className="mt-2">
+                  <span className="text-gray-600 text-sm">Canaux: </span>
+                  <div className="flex space-x-2 mt-1">
+                    {rule.channels.map(channel => (
+                      <span key={channel} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                        {channel === 'email' ? <Mail className="h-3 w-3 mr-1" /> : <MessageSquare className="h-3 w-3 mr-1" />}
+                        {channel}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          
+          <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => setShowRulesConfig(false)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -331,17 +285,18 @@ const NotificationSystem: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Système de Notifications Projets</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Système de notifications</h1>
           <p className="text-gray-600 mt-1">
-            Gestion automatisée des rappels de mise à jour pour les responsables de projet
+            Gestion automatique des rappels de mise à jour des projets
           </p>
         </div>
+        
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setShowRulesConfig(true)}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
+            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
           >
             <Settings className="h-4 w-4" />
             <span>Configurer les règles</span>
@@ -349,88 +304,82 @@ const NotificationSystem: React.FC = () => {
         </div>
       </div>
 
-      {/* Statistics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Bell className="h-6 w-6 text-blue-600" />
-            </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
             <div>
-              <div className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600">Total notifications</p>
+              <p className="text-2xl font-bold text-gray-900">{notifications.length}</p>
+            </div>
+            <Bell className="h-8 w-8 text-blue-600" />
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">En attente</p>
+              <p className="text-2xl font-bold text-orange-600">
                 {notifications.filter(n => !n.sentAt).length}
-              </div>
-              <div className="text-sm text-gray-600">En attente d'envoi</div>
+              </p>
             </div>
+            <Clock className="h-8 w-8 text-orange-600" />
           </div>
         </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Send className="h-6 w-6 text-green-600" />
-            </div>
+        
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
             <div>
-              <div className="text-2xl font-bold text-gray-900">
-                {notifications.filter(n => n.sentAt && !n.acknowledged).length}
-              </div>
-              <div className="text-sm text-gray-600">Envoyées</div>
+              <p className="text-sm text-gray-600">Envoyées</p>
+              <p className="text-2xl font-bold text-green-600">
+                {notifications.filter(n => n.sentAt).length}
+              </p>
             </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
         </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <AlertTriangle className="h-6 w-6 text-orange-600" />
-            </div>
+        
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
             <div>
-              <div className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600">Urgentes</p>
+              <p className="text-2xl font-bold text-red-600">
                 {notifications.filter(n => n.type === 'urgent').length}
-              </div>
-              <div className="text-sm text-gray-600">Urgentes</div>
+              </p>
             </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">
-                {notifications.filter(n => n.acknowledged).length}
-              </div>
-              <div className="text-sm text-gray-600">Traitées</div>
-            </div>
+            <AlertTriangle className="h-8 w-8 text-red-600" />
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="Rechercher un projet ou responsable..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Rechercher par chef de projet ou nom de projet..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          
+          <div className="flex items-center space-x-3">
+            <Filter className="h-4 w-4 text-gray-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">Toutes les notifications</option>
               <option value="pending">En attente d'envoi</option>
               <option value="sent">Envoyées</option>
+              <option value="urgent">Urgentes</option>
               <option value="acknowledged">Traitées</option>
             </select>
           </div>
@@ -438,10 +387,10 @@ const NotificationSystem: React.FC = () => {
       </div>
 
       {/* Notifications List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-lg border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
-            Notifications ({filteredNotifications.length})
+            Notifications actives ({filteredNotifications.length})
           </h2>
         </div>
         
@@ -515,7 +464,7 @@ const NotificationSystem: React.FC = () => {
                       
                       <div className="text-right">
                         <div className="mb-2">
-                          <div className="text-sm text-gray-600">Créé le</div>
+                          <div className="text-sm text-gray-600">Notification créée</div>
                           <div className="font-medium text-gray-900">
                             {new Date(notification.createdAt).toLocaleDateString('fr-FR')} à {new Date(notification.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -523,7 +472,7 @@ const NotificationSystem: React.FC = () => {
                         
                         {notification.sentAt && (
                           <div className="mb-2">
-                            <div className="text-sm text-gray-600">Envoyé le</div>
+                            <div className="text-sm text-gray-600">Envoyée le</div>
                             <div className="font-medium text-gray-900">
                               {new Date(notification.sentAt).toLocaleDateString('fr-FR')} à {new Date(notification.sentAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </div>

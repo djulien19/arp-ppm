@@ -246,6 +246,7 @@ export const mockProjects: Project[] = [
     description: 'Modernisation des outils RH et automatisation des processus administratifs.',
     status: 'in_progress',
     committeeType: 'codir',
+    committeeType: 'codir',
     governance: {
       raciMatrix: [
         {
@@ -417,6 +418,169 @@ export const mockProjects: Project[] = [
     lastUpdated: '2024-02-10T10:00:00Z', // Mise à jour il y a 18 jours pour déclencher une notification
     nextUpdateDue: '2024-02-25T10:00:00Z',
     createdAt: '2024-03-01T09:00:00Z'
+  },
+  {
+    id: '2',
+    initiativeId: '3',
+    fiId: '3-fi', 
+    title: 'Optimisation des tournées de collecte',
+    description: 'Mise en place d\'un nouveau système d\'optimisation des tournées pour réduire les coûts et améliorer l\'efficacité.',
+    status: 'in_progress',
+    committeeType: 'comex_collectes',
+    governance: {
+      raciMatrix: [
+        {
+          id: '1',
+          name: 'Pierre Dupont',
+          function: 'Chef de projet',
+          responsibility: 'R',
+          role: 'project_manager'
+        },
+        {
+          id: '2', 
+          name: 'Marie Martin',
+          function: 'Directrice Collectes',
+          responsibility: 'A',
+          role: 'sponsor'
+        }
+      ],
+      sponsor: 'Marie Martin',
+      projectManager: 'Pierre Dupont',
+      steeringCommittee: ['Marie Martin', 'Directeur Technique', 'PMO']
+    },
+    budget: {
+      initialEstimate: 250000,
+      currentBudget: 250000,
+      spent: 45000,
+      remaining: 205000,
+      externalCosts: 150000,
+      internalCosts: 100000,
+      budgetCode: 'PRJ-2024-COL-002',
+      deliverableBudgets: [],
+      variance: -2.1
+    },
+    planning: {
+      initialStartDate: '2024-04-01',
+      initialEndDate: '2024-12-31',
+      actualStartDate: '2024-04-01',
+      currentEndDate: '2025-01-15',
+      varianceDays: 15,
+      totalDuration: 275
+    },
+    riskManagement: {
+      globalRiskLevel: 'high',
+      riskCategories: [
+        { category: 'technical', level: 'high' },
+        { category: 'operational', level: 'medium' }
+      ],
+      risks: [
+        {
+          id: '1',
+          description: 'Intégration complexe avec les systèmes GPS existants',
+          category: 'technical',
+          probability: 'high',
+          impact: 'high', 
+          severity: 'high',
+          mitigation: 'Tests approfondis et plan de fallback préparé',
+          owner: 'Pierre Dupont',
+          status: 'open',
+          createdAt: '2024-04-15T09:00:00Z'
+        }
+      ],
+      complexityFactors: [
+        'Intégration avec 5 systèmes différents',
+        'Formation de 120 chauffeurs',
+        'Déploiement sur 3 sites'
+      ]
+    },
+    monitoring: {
+      healthStatus: 'orange',
+      scheduleStatus: 'delayed',
+      completionPercentage: 25,
+      lastAchievements: 'Analyse des besoins terminée, sélection du fournisseur en cours',
+      nextMajorMilestone: 'Signature du contrat fournisseur - prévu le 15/03/2024',
+      blockers: [
+        'Négociation contractuelle en cours avec le fournisseur principal',
+        'Validation sécurité IT en attente'
+      ],
+      attentionPoints: [
+        'Budget serré pour la phase d\'intégration', 
+        'Planning serré pour la formation des utilisateurs'
+      ]
+    },
+    milestones: [],
+    resources: [],
+    scopeChanges: [],
+    lastUpdated: '2024-01-28T15:00:00Z', // Mise à jour il y a 32 jours pour déclencher une notification urgente
+    nextUpdateDue: '2024-02-15T15:00:00Z',
+    createdAt: '2024-04-01T09:00:00Z',
+    performanceReports: []
+  },
+  {
+    id: '3',
+    initiativeId: '4',
+    fiId: '4-fi',
+    title: 'Modernisation du parc véhicules',
+    description: 'Remplacement progressif de la flotte par des véhicules électriques et hybrides.',
+    status: 'planning',
+    committeeType: 'codir',
+    governance: {
+      raciMatrix: [
+        {
+          id: '1',
+          name: 'Marc Rousseau',
+          function: 'Chef de projet',
+          responsibility: 'R',
+          role: 'project_manager'
+        }
+      ],
+      sponsor: 'Directeur Technique',
+      projectManager: 'Marc Rousseau',
+      steeringCommittee: ['Directeur Technique', 'Directeur Financier']
+    },
+    budget: {
+      initialEstimate: 2500000,
+      currentBudget: 2500000,
+      spent: 0,
+      remaining: 2500000,
+      externalCosts: 2200000,
+      internalCosts: 300000,
+      budgetCode: 'PRJ-2024-VEH-003',
+      deliverableBudgets: [],
+      variance: 0
+    },
+    planning: {
+      initialStartDate: '2024-06-01',
+      initialEndDate: '2027-05-31',
+      currentEndDate: '2027-05-31',
+      varianceDays: 0,
+      totalDuration: 1095
+    },
+    riskManagement: {
+      globalRiskLevel: 'medium',
+      riskCategories: [
+        { category: 'financial', level: 'high' },
+        { category: 'regulatory', level: 'medium' }
+      ],
+      risks: [],
+      complexityFactors: []
+    },
+    monitoring: {
+      healthStatus: 'green',
+      scheduleStatus: 'on_time',
+      completionPercentage: 5,
+      lastAchievements: 'Études préliminaires en cours',
+      nextMajorMilestone: 'Cahier des charges finalisé',
+      blockers: [],
+      attentionPoints: []
+    },
+    milestones: [],
+    resources: [],
+    scopeChanges: [],
+    lastUpdated: '2024-02-20T14:00:00Z', // Projet récent, pas de notification
+    nextUpdateDue: '2024-03-20T14:00:00Z',
+    createdAt: '2024-02-01T09:00:00Z',
+    performanceReports: []
   },
   {
     id: '2',
