@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, BarChart3, FolderOpen, CheckSquare, Users, Settings, Bell, PieChart, Database } from 'lucide-react';
+import { Building2, BarChart3, FolderOpen, CheckSquare, Users, Settings, Bell, PieChart, Database, BellRing } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,6 +13,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewChange }) 
     { id: 'initiatives', label: 'FI / FP', icon: FolderOpen },
     { id: 'projects', label: 'Projets', icon: CheckSquare },
     { id: 'committees', label: 'Reporting Comités', icon: PieChart },
+    { id: 'notifications', label: 'Notifications Projets', icon: BellRing },
     { id: 'value-lists', label: 'Listes de valeurs', icon: Database },
     { id: 'settings', label: 'Paramètres', icon: Settings },
   ];

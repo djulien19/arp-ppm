@@ -253,3 +253,14 @@ export interface DashboardStats {
     low: number;
   };
 }
+
+export interface NotificationSettings {
+  id: string;
+  projectId: string;
+  reminderDays: number;
+  maxNotificationsPerWeek: number;
+  channels: ('email' | 'teams')[];
+  enabled: boolean;
+  lastNotificationSent?: string;
+  notificationCount?: number;
+}
